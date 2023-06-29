@@ -1,0 +1,106 @@
+#!/bin/bash
+
+# monitor connectivity
+#    interval 5
+#    no shutdown
+#    interface set LO0 Loopback0
+#    local-interfaces LO0 address-only default
+#    !
+#    host SERVICE1
+#       ip 4.4.4.44
+#    !
+#    host SERVICE2
+#       ip 2.2.2.2
+#    !
+#    host SERVICE3
+#       ip 3.3.3.33
+
+# daemon RouteTracker1
+#    exec /mnt/flash/RouteTracker -h SERVICE1 -p 192.168.111.0/24 -n 4.4.4.44
+#    no shutdown
+
+
+
+
+set -u
+
+HOST=
+PREFIX=
+NEXTHOP=
+VRF="default"
+
+pktloss=
+rset=
+retmsg=
+
+usage() {
+    echo "usage: ${0##*/} -h <monitored host> -p <prefix> -n <next-hop> [-v <vrf>]"
+    exit 1
+}
+
+while getopts dh:p:n:v: opt; do
+    case $opt in
+    h)    HOST=${OPTARG};;
+    p)    PREFIX=${OPTARG};;
+    n)    NEXTHOP=${OPTARG};;
+    v)    VRF=${OPTARG};;
+    d)    set -x;;
+    *)    usage;;
+    esac
+done
+
+# exit if mandatory options are not provided
+if [[ -z $HOST || -z $PREFIX || -z $NEXTHOP ]]; then
+    usage
+fi
+
+while true; do
+
+    retmsg=$( Cli -c "show monitor connectivity host $HOST | json" )
+    if [[ $? != 0 ]]; then
+         logger -t ${0##*/} -p daemon.err "error checking monitor connectivity host $HOST"
+         logger -t ${0##*/} -p daemon.err "$retmsg"
+         sleep 60
+         continue
+    fi
+
+    pktloss=${retmsg##*packetLoss\": }
+    pktloss=${pktloss%%,*}
+
+    case $pktloss in
+    ''|*[!0-9]*)
+         # empty or non numerical value
+         logger -t $ {0##*/} -p daemon.err "received illegal value for $HOST packetLoss: $pktloss"
+         sleep 60
+         ;;
+     0)
+         # no packet-loss
+         if [[ $rset !=  1 ]]; then
+             retmsg=$( Cli -c "run ena; conf; ip route vrf $VRF $PREFIX $NEXTHOP name TRACK-$HOST" )
+             if [[ $? == 0 ]]; then
+                 logger -t ${0##*/}  -p daemon.info "adding route $PREFIX $NEXTHOP"
+                 rset=1
+             else
+                 logger -t ${0##*/} -p daemon.err "error adding route $PREFIX $NEXTHOP"
+                 logger -t ${0##*/} -p daemon.err "$retmsg"
+             fi
+         fi
+         ;;
+     *)
+         # packet-loss between 1% and 100%
+         if [[ $rset == 1 ]]; then
+             retmsg=$( Cli -c "run ena; conf; no ip route vrf $VRF $PREFIX $NEXTHOP" )
+             if [ $? == 0 ]; then
+                 logger -t ${0##*/} -p daemon.info "removing route $PREFIX $NEXTHOP"
+                 rset=0
+             else
+                 logger -t ${0##*/} -p daemon.err "error removing route $PREFIX $NEXTHOP"
+                 logger -t ${0##*/} -p daemon.err "$retmsg"
+             fi
+         fi
+         ;;
+    esac
+  
+    sleep 2
+
+done
