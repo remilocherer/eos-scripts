@@ -1,5 +1,23 @@
 #!/bin/bash
 
+# Copyright (c) 2023 Remi Locherer <remi@arista.com>
+#
+# Permission to use, copy, modify, and distribute this software for any
+# purpose with or without fee is hereby granted, provided that the above
+# copyright notice and this permission notice appear in all copies.
+#
+# THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+# WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+# ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+# OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
+# Add or remove an IPv4 route to EOS based on the packet-loss value measured by "monitor connectivity".
+# 
+# Example setup:
+#
 # monitor connectivity
 #    interval 5
 #    no shutdown
@@ -11,16 +29,13 @@
 #    !
 #    host SERVICE2
 #       ip 2.2.2.2
-#    !
-#    host SERVICE3
-#       ip 3.3.3.33
-
+#
 # daemon RouteTracker1
 #    exec /mnt/flash/RouteTracker -h SERVICE1 -p 192.168.111.0/24 -n 4.4.4.44
 #    no shutdown
-
-
-
+# daemon RouteTracker2
+#    exec /mnt/flash/RouteTracker -h SERVICE2 -p 192.168.112.0/24 -n 4.4.4.4 -v default
+#    no shutdown
 
 set -u
 
@@ -54,6 +69,7 @@ if [[ -z $HOST || -z $PREFIX || -z $NEXTHOP ]]; then
     usage
 fi
 
+
 while true; do
 
     retmsg=$( Cli -c "show monitor connectivity host $HOST | json" )
@@ -78,10 +94,10 @@ while true; do
          if [[ $rset !=  1 ]]; then
              retmsg=$( Cli -c "run ena; conf; ip route vrf $VRF $PREFIX $NEXTHOP name TRACK-$HOST" )
              if [[ $? == 0 ]]; then
-                 logger -t ${0##*/}  -p daemon.info "adding route $PREFIX $NEXTHOP"
+                 logger -t ${0##*/}  -p daemon.info "adding route vrf $VRF $PREFIX $NEXTHOP"
                  rset=1
              else
-                 logger -t ${0##*/} -p daemon.err "error adding route $PREFIX $NEXTHOP"
+                 logger -t ${0##*/} -p daemon.err "error adding route vrf $VRF $PREFIX $NEXTHOP"
                  logger -t ${0##*/} -p daemon.err "$retmsg"
              fi
          fi
@@ -91,10 +107,10 @@ while true; do
          if [[ $rset == 1 ]]; then
              retmsg=$( Cli -c "run ena; conf; no ip route vrf $VRF $PREFIX $NEXTHOP" )
              if [ $? == 0 ]; then
-                 logger -t ${0##*/} -p daemon.info "removing route $PREFIX $NEXTHOP"
+                 logger -t ${0##*/} -p daemon.info "removing route vrf $VRF $PREFIX $NEXTHOP"
                  rset=0
              else
-                 logger -t ${0##*/} -p daemon.err "error removing route $PREFIX $NEXTHOP"
+                 logger -t ${0##*/} -p daemon.err "error removing route vrf $VRF $PREFIX $NEXTHOP"
                  logger -t ${0##*/} -p daemon.err "$retmsg"
              fi
          fi
