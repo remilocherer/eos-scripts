@@ -78,6 +78,9 @@ if [[ -z $HOST || -z $PREFIX || -z $NEXTHOP ]]; then
     usage
 fi
 
+# wait if uptime is less than 10 min
+upt=$( </proc/uptime )
+[ ${upt%%.*} -lt 600 ] && sleep $((600-${upt%%.*}))
 
 while true; do
 
