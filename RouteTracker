@@ -16,6 +16,7 @@
 
 # Add or remove an IPv4 route to EOS based on the packet-loss value measured by "monitor connectivity".
 # 
+#
 # Example setup:
 #
 # monitor connectivity
@@ -36,6 +37,14 @@
 # daemon RouteTracker2
 #    exec /mnt/flash/RouteTracker -h SERVICE2 -p 192.168.112.0/24 -n 4.4.4.4 -v default
 #    no shutdown
+#
+#
+# Check status / debug:
+#
+# show monitor connectivity
+# show running-config section ip route | include TRACK
+# show daemon
+# bash sudo grep RouteTracker  /var/log/messges
 
 set -u
 
