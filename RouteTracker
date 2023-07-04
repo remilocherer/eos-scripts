@@ -96,10 +96,6 @@ while true; do
     pktloss=${pktloss%%,*}
 
     case $pktloss in
-    ''|*[!0-9]*) # empty or non numerical value
-         logger -t $ {0##*/} -p daemon.err "received illegal value for $HOST packetLoss: $pktloss"
-         sleep 60
-         ;;
      0)  # no packet-loss
          if [[ $rset !=  1 ]]; then
              retmsg=$( Cli -c "run ena; conf; ip route vrf $VRF $PREFIX $NEXTHOP name TRACK-$HOST" )
@@ -112,7 +108,7 @@ while true; do
              fi
          fi
          ;;
-     *)  # packet-loss between 1% and 100%
+     [1-9]|[1-9][0-9]|100)  # packet-loss between 1% and 100%
          if [[ $rset == 1 ]]; then
              retmsg=$( Cli -c "run ena; conf; no ip route vrf $VRF $PREFIX $NEXTHOP" )
              if [ $? == 0 ]; then
@@ -123,6 +119,10 @@ while true; do
                  logger -t ${0##*/} -p daemon.err "$retmsg"
              fi
          fi
+         ;;
+    *) # illegal value
+         logger -t $ {0##*/} -p daemon.err "received illegal value for $HOST packetLoss: $pktloss"
+         sleep 60
          ;;
     esac
   
