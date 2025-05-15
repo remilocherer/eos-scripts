@@ -1,0 +1,6 @@
+# ingnore images and other files not to be uploaded to GitHub
+.gitignored/*
+!.gitignored/.gitkeep
+
+# mac stuff
+.DS_Store
