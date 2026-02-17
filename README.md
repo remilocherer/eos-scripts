@@ -17,3 +17,7 @@ API documentation: https://apihelp.wifi.arista.com/home
 
 The script fetches the name and IP address of all managed APs. 
 It prints them one per line and separates the values with a comma.
+
+## cv-configlets-to-studios.py
+
+Convert exported CloudVision static confglets to a YAML file that can be imported into the "Static Configuration" studio.
